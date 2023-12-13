@@ -1,0 +1,112 @@
+---
+title: "Tarea 6"
+author: "Grupo 7"
+date: "2023-10-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### Problema
+
+Un equipo de investigadores del área de interacción humano-información está estudiando si el área temática y el nivel de dificultad del problema de información influyen en el tiempo (en segundos) que toma un usuario en formular una consulta de búsqueda para resolver dicho problema. Para ello, han reclutado a un grupo de participantes voluntarios, asignados aleatoriamente a distintos grupos. Cada participante debe resolver tres problemas de información con diferentes niveles de dificultad: baja, media y alta. A su vez, cada grupo debe resolver problemas relacionados a una temática diferente. 
+
+En este momento, los investigadores buscan determinar si existen diferencias en el tiempo que tardan los usuarios en formular consultas para problemas con diferente nivel de dificultad en el área de Literatura.
+
+En base a lo descrito, se postulan las siguientes hipótesis:
+
+$H_0$: No existen diferencias en los tiempos de consulta entre distintas dificultades para el área de Literatura.
+
+$H_a$: Existen diferencias en los tiempos de consulta entre distintas dificultades para el área de Literatura.
+
+<br>
+
+Partimos obteniendo y filtrando los datos. 
+
+```{r}
+datos = read.csv2("EP05 Datos.csv", sep=",", stringsAsFactors = TRUE)
+
+# Se filtran los datos por las consultas de literatura.
+datos = datos[datos$area == "Literatura",]
+
+# Se filtra un dato atipico.
+datos = datos[datos$id != 1381,]
+
+# Se transforman los ids como factores ya que no corresponden a una medida númerica como tal.
+datos$id = as.factor(datos$id)
+```
+
+
+Se grafican los datos para visualizar una diferencia significativa antes de empezar el analisis inferencial.
+
+```{r}
+library(ggplot2)
+
+ggplot(datos, aes(x=dificultad, y=tiempo)) + 
+  geom_boxplot(fill="darkgreen", alpha=0.5) + 
+  xlab("dificultad")
+```
+
+<br>
+
+#### Condiciones para ANOVA
+
+Se puede apreciar una diferencia, pero para estar seguros usaremos una prueba para validarlo. Verificaremos las condiciones de ANOVA.
+
+* Primero validaremos la normalidad de los datos por dificultad:
+```{r}
+library(ggpubr)
+ggqqplot(datos, x="tiempo", color="dificultad") +
+  facet_wrap(~ dificultad)
+
+print(shapiro.test(datos[datos$dificultad == "Baja", ]$tiempo))
+print(shapiro.test(datos[datos$dificultad == "Media", ]$tiempo))
+print(shapiro.test(datos[datos$dificultad == "Alta", ]$tiempo))
+```
+
+Se asume que cada grupo cumple la condición de normalidad ya que cada p-value es mayor a 0,05.
+
+* Como la escala es en el tiempo, la escala es de intervalos iguales.
+
+* Las mediciones son independientes al interior de cada grupo ya que una persona distinta corresponde a cada evento, ademas de no afectarse entre si.
+
+* Para la validación de covarianzas esfericas lo validaremos usando la misma prueba ANOVA suministrada por la libreria "ez".
+
+Con esto ya podemos realizar la prueba ANOVA de la siguiente manera.
+```{r}
+library(ez)
+
+prueba = ezANOVA(datos, dv=tiempo, wid=id, within=dificultad, return_aov = TRUE)
+
+# Resultados de esferidad
+print(prueba$`Mauchly's Test for Sphericity`)
+```
+
+Como el p-value < 0,05 se verifica la esfericidad.
+
+<br>
+
+#### Prueba ANOVA
+
+Ya se puede realizar la prueba ANOVA, por lo que verificaremos los resultados de esta.
+
+```{r}
+summary(prueba$aov)
+```
+
+El resultado nos da un p-value < 0,05, con lo que se puede rechazar la hipotesis nula a favor de la alternativa con un 95% de confianza.
+
+<br>
+
+#### Procedimiento post-hoc
+
+Ya sabemos que hay una diferencia, pero veremos cual es el grupo que tiene diferencia usando un procedimiento post-hoc.
+
+```{r}
+pairwise.t.test(datos$tiempo, datos$dificultad, paired = TRUE)
+```
+
+Se puede comprobar que hay diferencias estadisticas suficientes en el tiempo que se demora una consulta para cada dificultad con cualquier otra dificultad.
+

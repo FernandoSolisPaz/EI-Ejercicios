@@ -1,0 +1,282 @@
+---
+title: "EP07-Respuesta-Equipo-7"
+author: "Equipo 7"
+date: "2023-10-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r}
+datos = read.csv2("EP07 Datos.csv", sep=",");
+```
+<br>
+<br>
+
+1. Observando los datos, la memorista sospecha que hay diferencias significativas en el tiempo de ejecución entre las versiones B y C del algoritmo cuando las instancias tienen 60 o más nodos. ¿Los datos respaldan la intuición de la memorista?
+
+Para responder, filtren los datos para tener las instancias con 60 o más nodos y seleccionen las columnas de los tiempos de ejecución de las versiones B y C en formato ancho. Usando como semilla el valor 71, obtenga muestras aleatorias independientes de 22 tiempos registrados por la versión B y 19 tiempos registrados por la versión C del algoritmo. Realicen un análisis estadístico pertinente (enunciar hipótesis, revisar condiciones, seleccionar prueba) para responder la pregunta planteada, utilizando pruebas no paramétricas de ser necesario.
+
+```{r}
+datos = filter(datos, n.nodos >= 60) # Se filtran los datos para tener instancias con 60 o mas nodos
+
+set.seed(71) # Se establece una semilla correspondiente
+
+# Se muestrean los datos, asegurandonos de tener 22 instancias
+# de tiempos para el algoritmo B y 19 instancias distintas para
+# el algortimo C
+datos_1 = datos[sample(nrow(datos), 22 + 19), ]
+
+datos_B = datos_1[1:22,]
+datos_C = datos_1[23:41,]
+
+# Se pivotean los datos en base a lo pedido
+datos_B = datos_B %>% pivot_longer(c("tiempo.A", "tiempo.B", "tiempo.C"), names_to = "Algoritmo"
+                               , values_to = "tiempo")
+datos_C = datos_C %>% pivot_longer(c("tiempo.A", "tiempo.B", "tiempo.C"), names_to = "Algoritmo"
+                               , values_to = "tiempo")
+
+datos_B = filter(datos_B, Algoritmo == "tiempo.B")
+datos_C = filter(datos_C, Algoritmo == "tiempo.C")
+
+
+```
+
+Con la información proporcionada, se plantean las siguientes hipótesis: 
+
+$H_0$: No existen diferencias en los tiempos de ejecución entre la versión B y C del algoritmo cuando hay 60 o más nodos. 
+
+$H_a$: Sí existen diferencias en los tiempos de ejecución entre la versión B y C del algoritmo cuando hay 60 o más nodos.
+
+Para verificar lo anterior, primero se filtraron los datos para tener todas las instancias que tengan 60 o más nodos. Posteriormente se obtienen las muestras aleatorias de la versión B y C del algoritmo.
+
+<br>
+
+Luego, se comprueba la normalidad de las distribuciones que siguen las poblaciones de las muestras mediante la prueba de normalidad Shapiro-Wilk:
+
+```{r}
+print(shapiro.test(datos_B$tiempo));
+print(shapiro.test(datos_C$tiempo));
+```
+Se puede observar que not todas las distribuciones que siguen las poblaciones de las muestras son suficientemente semejantes a una distribucion normal, por lo que va a ser necesario realizar un acercamiento con pruebas no paramétricas. En este caso, ya que se desea comparar medias no pareadas (distintas instancias), se utilizará la prueba de suma de rangos de Wilcoxon.
+
+<br>
+
+Condiciones de Wilcoxon:
+
+1) Son independientes, ya que los algoritmos no afectan los tiempos de otros algoritmos.
+
+2) Son datos ordinales, ya que podemos comparar los tiempos de menor a mayor.
+
+```{r}
+wilcox.test(datos_B$tiempo, datos_C$tiempo, alternative = "two.sided")
+```
+Con un p value < 0.05, podemos rechazar la hipotesis nula en favor de la alternativa.
+
+<br>
+<br>
+
+2. La memorista también sospecha que, al comparar las mismas instancias de iguales características, las mejores soluciones encontradas por las versiones B y C tienen rendimientos distintos. ¿Estará en lo cierto?
+
+Para responder, filtren los datos para tener las instancias con 60 o más nodos y seleccionen las columnas con el mejor rendimiento de las versiones B y C en formato ancho. Usando como semilla el valor 33, obtengan una muestra aleatoria de 20 instancias. Realicen un análisis estadístico pertinente (enunciar hipótesis, revisar condiciones, seleccionar prueba) para responder la pregunta planteada, utilizando pruebas no paramétricas de ser necesario.
+
+```{r}
+datos_2 = datos[datos$n.nodos >= 60,] # Se filtran los datos para tener instancias con 60 o mas nodos
+
+set.seed(33);
+
+datos_2 = datos_2[sample(nrow(datos_2), 20),];
+
+datos_2 = datos_2 %>% pivot_longer(c("mejor.B", "mejor.C"), names_to = "algoritmo", values_to = "mejor")
+datos_2$mejor = as.numeric(datos_2$mejor)
+
+B = datos_2[datos_2$algoritmo == "mejor.B",]
+C = datos_2[datos_2$algoritmo == "mejor.C",]
+```
+
+En base a los datos obtenidos y la afirmacion que se desea provar, se plantean las siguientes hipótesis:
+
+$H_0$: No existen diferencias en las mejores soluciones encontradas por las versiónes B y C del algoritmo aplicadas a mismas instancias cuando hay 60 o más nodos.
+
+$H_a$: Sí existen diferencias en las mejores soluciones encontradas por las versiónes B y C del algoritmo aplicadas a mismas instancias cuando hay 60 o más nodos.
+
+<br>
+
+Luego, para comprobar lo anterior, primero se realiza una prueba para encontrar si existen diferencias significativas entre las distribuciones que siguen las poblaciones de los datos y distribuciones normales.
+
+```{r}
+print(shapiro.test(B$mejor));
+print(shapiro.test(C$mejor));
+```
+
+En base a los resultados obtenidos, se tiene que existen diferencias significativas entre las distribuciones que siguen las poblaciones y distribuciones normales, por lo cual se escoge una prueba no parametrica para comparacion de 2 medias pareadas.
+
+Por lo anterior, la prueba escogida es la Prueba de Rangos con signos de Wilcoxon (muestras pareadas).
+
+<br>
+
+Condiciones de Prueba de Rangos con signo de Wilcoxon:
+
+1)  Son pares de observaciones independientes, ya que los algoritmos no afectan los tiempos de otros algoritmos.
+
+2)  La escala de medicion para las observaciones es intrinsicamente continua, ya que el tiempo es continuo.
+
+3)  Son datos ordinales, ya que podemos comparar los tiempos de menor a mayor.
+
+Al cumplirse las condiciones, realizamos la prueba.
+
+```{r}
+wilcox.test(B$mejor, C$mejor, paired=TRUE, alternative="two.sided")
+```
+Del valor de p obtenido se tiene que p < 0.05, por lo cual podemos concluir con un 95% de confianza que existen diferencias significativas entre las mejores soluciones encontradas por los algoritmos B y C en mismas instancias cuando hay 60 o mas nodos.
+
+<br>
+<br>
+
+3. La memorista sospecha que hay diferencias significativas en el tiempo de ejecución entre las versiones del algoritmo cuando las instancias de prueba tienen 60 o más nodos. ¿Los datos respaldan la intuición de la memorista?
+Para responder, filtren los datos para tener las instancias con 60 o más nodos y seleccionen las columnas con los tiempos de ejecución registrados (en formato ancho). Usando como semilla el valor 31, obtengan muestras aleatorias independientes de 15, 14 y 13 tiempos registrados por las versiones A, B y C, respectivamente. Realicen un análisis estadístico pertinente (enunciar hipótesis, revisar condiciones, seleccionar prueba) para responder la pregunta planteada, utilizando pruebas no paramétricas de ser necesario.
+
+```{r}
+datos_3 = datos[datos$n.nodos >= 60,] # Se filtran los datos para tener instancias con 60 o mas nodos
+
+set.seed(31)
+
+datos_3 = datos_3[sample(nrow(datos_3), 15 + 14 + 13), ]
+
+A = datos_3[1:15,]
+B = datos_3[16:29,]
+C = datos_3[30:42,]
+
+# Se pivotean los datos en base a lo pedido
+A = A %>% pivot_longer(c("tiempo.A", "tiempo.B", "tiempo.C"), names_to = "Algoritmo", values_to = "tiempo")
+B = B %>% pivot_longer(c("tiempo.A", "tiempo.B", "tiempo.C"), names_to = "Algoritmo", values_to = "tiempo")
+C = C %>% pivot_longer(c("tiempo.A", "tiempo.B", "tiempo.C"), names_to = "Algoritmo", values_to = "tiempo")
+
+A = filter(A, Algoritmo == "tiempo.A")
+B = filter(B, Algoritmo == "tiempo.B")
+C = filter(C, Algoritmo == "tiempo.C")
+
+datos_3 = bind_rows(A, B, C)
+```
+
+Con la información proporcionada, se plantean las siguientes hipótesis:
+
+$H_0$: No existen diferencias en los tiempos de ejecución entre las versiones del algoritmo cuando las instancias tienen 60 o más nodos.
+
+$H_a$: Sí existen diferencias en los tiempos de ejecución entre las versiones del algoritmo cuando las instancias tienen 60 o más nodos.
+
+Primero se realizo el filtrado de los datos para dejar las instancias que tengan 60 o más nodos. Después se toman las muestras respectivas para cada versión del algoritmo y se dejan en formato ancho.
+
+<br>
+
+Para determinar si se realizará una prueba paramátrica, es necesario comprobar la normalidad de las muestras, por lo que se usará la prueba de normalidad de Shapiro-Wilk:
+
+```{r}
+print(shapiro.test(A$tiempo))
+print(shapiro.test(B$tiempo))
+print(shapiro.test(C$tiempo))
+```
+Como se puede observar, ninguna muestra viene de una poblacion que siga una distribucion que se aproxime a una distribución normal, por lo que se tomará un acercamiento con una prueba no paramétrica. En este caso, al buscar comparar medias de más de 2 muestras no pareadas, se considera usar la prueba de Krustal-Wallis.
+
+<br>
+
+Las condiciones de la prueba Krustal-Wallis son:
+
+1) Se tienen 2 o más muestras.
+
+2) La escala de la variable dependiente es ordinal (tiempo).
+
+3) Las observaciones son independendientes, ya que los algoritmos no se afectan entre si.
+
+Con las condiciones satisfechas, se realiza la prueba de Krustal-Wallis:
+
+```{r}
+kruskal.test(tiempo ~ Algoritmo, datos_3)
+```
+Con un p<0.05, se rechaza la hipótesis nula en favor de la hipótesis alternativa.
+
+<br>
+
+Como la prueba de Kruskal-Wallis se trata de una prueba ómnibus (no entrega información respecto a cuales grupos presentan diferencias) y existen diferencias significativas, es necesario realizar una prueba Post-Hoc. 
+
+```{r}
+post_hoc <- pairwise.wilcox.test(datos_3$tiempo, datos_3$Algoritmo,
+                                 p.adjust.method = "holm", paired = FALSE)
+print(post_hoc)
+```
+Con los cálculos obtenidos por la corrección, se puede concluir que existen diferencias significativas entre los tiempo de la versión B y C del algoritmo.
+
+<br>
+<br>
+
+4. La memorista también sospecha que, al comparar las mismas instancias con iguales características, las mejores soluciones encontradas por las diferentes versiones del algoritmo tienen rendimientos distintos. ¿Estará en lo cierto?
+Para responder, filtren los datos para tener las instancias con 60 o más nodos y seleccionen las columnas con los mejores rendimientos registrados. Usando como semilla el valor 73, obtengan una muestra aleatoria de 22 instancias. Realicen un análisis estadístico pertinente (enunciar hipótesis, revisar condiciones, seleccionar prueba) para responder la pregunta planteada, utilizando pruebas no paramétricas de ser necesario.
+
+```{r}
+datos_4= datos[datos$n.nodos >= 60,] # Se filtran los datos para tener instancias con 60 o mas nodos
+
+set.seed(73);
+
+datos_4 = datos_4[sample(nrow(datos_4), 22),];
+
+datos_4 = datos_4 %>% pivot_longer(c("mejor.A", "mejor.B", "mejor.C"), names_to = "algoritmo", values_to = "mejor")
+datos_4$mejor = as.numeric(datos_4$mejor)
+
+A = datos_4[datos_4$algoritmo == "mejor.A",]
+B = datos_4[datos_4$algoritmo == "mejor.B",]
+C = datos_4[datos_4$algoritmo == "mejor.C",]
+
+datos_4 = bind_rows(A, B, C)
+```
+
+En base a la informacion obtenida y la conclusion a la cual se quiere llegar, se plantean las siguientes hipótesis: 
+
+$H_0$: No existen diferencias en los mejores tiempos encontrados entre las 3 versiones del algoritmo en mismas instancias cuando hay 60 o más nodos. 
+
+$H_a$: Sí existen diferencias en los mejores tiempos encontrados entre las 3 versiones del algoritmo en mismas instancias cuando hay 60 o más nodos. 
+
+<br>
+
+Para comprobar la veracidad de las hipotesis planteadas primero se realizan pruebas de normalidad sobre los datos obtenidos.
+
+```{r}
+print(shapiro.test(A$mejor))
+print(shapiro.test(B$mejor))
+print(shapiro.test(C$mejor))
+```
+En base a los resultados obtenidos se tiene que no todas las distribuciones seguidas por las poblaciones de las muestras son suficientemente cercanas a una distribucion normal, por lo cual se escoge una prueba no parametrica para compara 3 medias pareadas.
+
+En base a lo anterior se escoge la prueba de Friedman y se verifican sus condiciones:
+
+<br>
+
+Condiciones de la prueba de Friedman:
+
+1) La variable independiente (Algoritmo) es categorica y de tres niveles (A, B y C).
+
+2) La variable dependiente es mejor tiempo, por lo cual es ordinal.
+
+3) Cada instancia es escogida aleatoriamente y es independiente de la poblacion de todas las instancias posibles.
+
+Cumplidas las condiciones se realiza la prueba:
+```{r}
+friedman.test(mejor ~ algoritmo | instancia, datos_4)
+```
+
+Ya que obtuvo un valor de p < 0.05 se rechaza la hipotesis nula en favor de la alternativa, concluyendo que existen diferencias significativas entre los mejores tiempos obtenidos por los algoritmos sobre cada instancia.
+
+<br>
+
+Ademas, ya que la prueba de Friedman es omnibus y se encontraron diferencias significativas se debe realizar un prodecimiento post-hoc.
+
+```{r}
+post_hoc <- pairwise.wilcox.test(datos_4$mejor, datos_4$algoritmo,
+                                 p.adjust.method =  "holm", paired=TRUE)
+print(post_hoc)
+```
+En base a los p value obtenidos, se tiene que existen diferencias significativas entre los mejores tiempo obtenidos por el algoritmo A y B.
